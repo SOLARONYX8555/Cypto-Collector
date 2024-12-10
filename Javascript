@@ -1,0 +1,213 @@
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+let score = 0;
+let level = 1;
+let timeLeft = 30;
+let coins = [];
+let obstacles = [];
+let powerUps = [];
+let gameInterval;
+let timerInterval;
+const carpenterImage = new Image();
+const kumpaImage = new Image();
+
+// Load images
+carpenterImage.src = 'https://example.com/carpenter.png'; // Replace with real URL
+kumpaImage.src = 'https://example.com/kumpa.png'; // Replace with real URL
+
+// Carpenter class
+class Carpenter {
+    constructor() {
+        this.x = canvas.width / 2;
+        this.y = canvas.height - 50;
+        this.size = 40;
+    }
+
+    draw() {
+        ctx.drawImage(carpenterImage, this.x, this.y, this.size, this.size);
+    }
+}
+
+const carpenter = new Carpenter();
+
+// Coin class
+class Coin {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = 20;
+    }
+
+    draw() {
+        ctx.fillStyle = 'gold';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// Obstacle class
+class Obstacle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = 30;
+        this.speed = Math.random() * 2 + 1; // Random speed for each obstacle
+    }
+
+    draw() {
+        ctx.drawImage(kumpaImage, this.x, this.y, this.size, this.size);
+        this.x += this.speed; // Move the obstacle
+        // Reset position if it goes out of bounds
+        if (this.x > canvas.width) {
+            this.x = -this.size;
+            this.y = Math.random() * (canvas.height - this.size);
+        }
+    }
+}
+
+// Power-up class
+class PowerUp {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = 15;
+    }
+
+    draw() {
+        ctx.fillStyle = 'blue';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// Start the game
+document.getElementById('start-game').addEventListener('click', () => {
+    startGame();
+});
+
+// Initialize the game
+function startGame() {
+    score = 0;
+    level = 1;
+    timeLeft = 30;
+    document.getElementById('score').innerText = "Coins: " + score;
+    document.getElementById('level').innerText = "Level: " + level;
+    document.getElementById('timer').innerText = "Time: " + timeLeft;
+    coins = [];
+    obstacles = [];
+    powerUps = [];
+    spawnCoins();
+    spawnObstacles();
+    spawnPowerUps();
+    
+    if (gameInterval) clearInterval(gameInterval);
+    if (timerInterval) clearInterval(timerInterval);
+
+    timerInterval = setInterval(updateTimer, 1000);
+    gameInterval = setInterval(updateGame, 100);
+}
+
+// Spawn coins randomly
+function spawnCoins() {
+    for (let i = 0; i < 5 + level; i++) {
+        const x = Math.random() * (canvas.width - 40) + 20;
+        const y = Math.random() * (canvas.height - 40) + 20;
+        coins.push(new Coin(x, y));
+    }
+}
+
+// Spawn obstacles randomly
+function spawnObstacles() {
+    for (let i = 0; i < level; i++) {
+        const x = Math.random() * (canvas.width - 40) + 20;
+        const y = Math.random() * (canvas.height - 40) + 20;
+        obstacles.push(new Obstacle(x, y));
+    }
+}
+
+// Spawn power-ups randomly
+function spawnPowerUps() {
+    for (let i = 0; i < level; i++) {
+        const x = Math.random() * (canvas.width - 40) + 20;
+        const y = Math.random() * (canvas.height - 40) + 20;
+        powerUps.push(new PowerUp(x, y));
+    }
+}
+
+// Update the timer
+function updateTimer() {
+    timeLeft--;
+    document.getElementById('timer').innerText = "Time: " + timeLeft;
+    if (timeLeft <= 0) {
+        alert('Time is up! Your final score is: ' + score);
+        clearInterval(gameInterval);
+        clearInterval(timerInterval);
+    }
+}
+
+// Update the game
+function updateGame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    carpenter.draw();
+    coins.forEach(coin => {
+        coin.draw();
+    });
+    obstacles.forEach(obstacle => {
+        obstacle.draw();
+    });
+    powerUps.forEach(powerUp => {
+        powerUp.draw();
+    });
+
+    // Check for collisions with mouse click
+    canvas.addEventListener('click', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = event.clientX - rect.left;
+        const mouseY = event.clientY - rect.top;
+
+        // Move carpenter to mouse click position
+        carpenter.x = mouseX - carpenter.size / 2;
+        carpenter.y = mouseY - carpenter.size / 2;
+
+        // Check for coin collection
+        coins = coins.filter(coin => {
+            const isHit = Math.hypot(coin.x - carpenter.x, coin.y - carpenter.y) < coin.size;
+            if (isHit) {
+                score++;
+                document.getElementById('score').innerText = "Coins: " + score;
+            }
+            return !isHit;
+        });
+
+        // Check for power-up collection
+        powerUps = powerUps.filter(powerUp => {
+            const isHit = Math.hypot(powerUp.x - carpenter.x, powerUp.y - carpenter.y) < powerUp.size;
+            if (isHit) {
+                score += 5; // Increase score by 5 for power-ups
+                document.getElementById('score').innerText = "Coins: " + score;
+            }
+            return !isHit;
+        });
+
+        // Check for obstacles
+        obstacles.forEach(obstacle => {
+            const isHit = Math.hypot(obstacle.x - carpenter.x, obstacle.y - carpenter.y) < obstacle.size;
+            if (isHit) {
+                alert('Game Over! You hit a Kumpa Lumpa.');
+                clearInterval(gameInterval);
+                clearInterval(timerInterval);
+            }
+        });
+
+        // Level up if all coins are collected
+        if (coins.length === 0) {
+            level++;
+            document.getElementById('level').innerText = "Level: " + level;
+            spawnCoins();
+            spawnObstacles();
+            spawnPowerUps();
+        }
+    });
+}
